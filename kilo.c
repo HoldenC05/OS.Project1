@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
@@ -31,12 +32,12 @@ void die(const char *s) {
     exit(1);
 }
 
-void disableRawMode() {
+void disableRawMode(void) {
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
         die("tcsetattr");
 }
 
-void enableRawMode() {
+void enableRawMode(void) {
 
     if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1) die("tcgetattr");
     atexit(disableRawMode);
@@ -52,7 +53,7 @@ void enableRawMode() {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
-char editorReadKey() {
+char editorReadKey(void) {
     int nread;
     char c;
     while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
@@ -94,27 +95,60 @@ int getWindowSize (int *rows, int *cols) {
         return 0;
     }
 }
+
+/*** append buffer ***/
+
+struct abuf {
+    char *b;
+    int len;
+};
+
+#define ABUF_INIT {NULL, 0}
+
+    /*this is memory allocation stuff*/
+void abAppend(struct abuf *ab, const char *s, int len) {
+    char *new = realloc(ab->b, ab->len + len);
+
+    if (new == NULL) return;
+    memcpy(&new[ab->len], s, len);
+    ab->b = new;
+    ab->len += len;
+}
+
+void abFree(struct abuf *ab) {
+    free(ab->b);
+}
+
 /***output ***/
 
-void editorDrawRows() {
+void editorDrawRows(struct abuf *ab) {
     int y;
     for (y = 0; y < E.screenrows; y++) {
-        write(STDOUT_FILENO, "~\r\n", 3);
+        abAppend(ab, "~", 1);
+
+        if(y < E.screenrows - 1) {
+            abAppend(ab, "\r\n", 2);
+        }
     }
 }
 
-void editorRefreshScreen() {
-    write(STDOUT_FILENO, "\x1b[2J", 4);
-    write(STDOUT_FILENO, "\x1b[H", 3);
+void editorRefreshScreen(void) {
+    struct abuf ab = ABUF_INIT;
 
-    editorDrawRows();
+    abAppend(&ab, "\x1b[2J", 4);
+    abAppend(&ab, "\x1b[H", 3);
 
-    write(STDOUT_FILENO, "\x1b[H", 3);
-}
+    editorDrawRows(&ab);
+
+    abAppend(&ab, "\x1b[H", 3);
+
+    write(STDOUT_FILENO, ab.b, ab.len);
+    abFree(&ab);
+  }
 
 /*** input ***/
 
-void editorProcessKeypress() {
+void editorProcessKeypress(void) {
     char c = editorReadKey();
 
     switch (c) {
@@ -128,11 +162,11 @@ void editorProcessKeypress() {
 
 /*** init ***/
 
-void initEditor() {
+void initEditor(void) {
     if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
 }
 
-int main() {
+int main(void) {
     enableRawMode();
     initEditor();
 
