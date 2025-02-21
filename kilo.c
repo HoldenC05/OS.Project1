@@ -67,6 +67,8 @@ struct editorConfig E;
 /*** prototypes ***/
 
 void editorSetStatusMessage(const char *fmt, ...);
+void editorRefreshScreen(void);
+char *editorPrompt(char *prompt);
 
 /*** terminal ***/
 
@@ -363,7 +365,12 @@ void editorOpen(char *filename) {
   }
 
 void editorSave(void) {
-    if (E.filename == NULL) return;
+        if (E.filename == NULL) {
+            E.filename = editorPrompt("Save as: %s (ESC to cancel)");
+            if (E.filename == NULL) {
+                editorSetStatusMessage("Save aborted");
+                return;
+            }
 
     int len;
     char *buf = editorRowsToString(&len);
@@ -385,6 +392,7 @@ void editorSave(void) {
         editorSetStatusMessage("Can't save! I/O error: %s", strerror(errno));
 
   }
+}
   
 
 /*** append buffer ***/
@@ -470,9 +478,8 @@ void editorDrawRows(struct abuf *ab) {
 void editorDrawStatusBar(struct abuf *ab) {
     abAppend(ab, "\x1b[7m", 4);
     char status[80], rstatus[80];
-    int len = snprintf(status, sizeof(status), "%.20s - %d lines",
-        E.filename ? E.filename : "[No Name]", E.numrows, 
-        E.dirty ? "(modified)" : "");
+    int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
+        E.filename ? E.filename : "[No Name]", E.numrows, E.dirty ? "(modified)" : "");
     int rlen = snprintf(rstatus, sizeof(rstatus), "%d/%d",
         E.cy + 1, E.numrows);
     if (len > E.screencols) len = E.screencols;
@@ -530,6 +537,41 @@ void editorSetStatusMessage(const char *fmt, ...) {
 }
   
 /*** input ***/
+
+
+char *editorPrompt(char *prompt) {
+    size_t bufsize = 128;
+    char *buf = malloc(bufsize);
+
+    size_t buflen = 0;
+    buf[0] = '\0';
+
+    while (1) {
+        editorSetStatusMessage(prompt, buf);
+        editorRefreshScreen();
+
+        int c = editorReadKey();
+        if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE) {
+            if (buflen != 0) buf[--buflen] = '\0';
+          } else if (c == '\x1b') {
+            editorSetStatusMessage("");
+            free(buf);
+            return NULL;
+          } else if (c == '\r') {
+            if (buflen != 0) {
+                editorSetStatusMessage("");
+                return buf;
+            }
+        } else if (!iscntrl(c) && c < 128) {
+            if (buflen == bufsize - 1) {
+                bufsize *= 2;
+                buf = realloc(buf, bufsize);
+            }
+            buf[buflen++] = c;
+            buf[buflen] = '\0';
+      }
+    }
+  }
 
 void editorMoveCursor(int key) {
     erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
