@@ -236,43 +236,35 @@ int is_separator(int c) {
     return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];", c) != NULL;
   }
 
-void editorUpdateSyntax(erow *row)
+  void editorUpdateSyntax(erow *row)
   {
       row->hl = realloc(row->hl, row->rsize);
       memset(row->hl, HL_NORMAL, row->rsize);
-
       if (E.syntax == NULL)
           return;
-
       char **keywords = E.syntax->keywords;
-
       char *scs = E.syntax->singleline_comment_start;
       char *mcs = E.syntax->multiline_comment_start;
       char *mce = E.syntax->multiline_comment_end;
-
       int scs_len = scs ? strlen(scs) : 0;
       int mcs_len = mcs ? strlen(mcs) : 0;
       int mce_len = mce ? strlen(mce) : 0;
-
       int prev_sep = 1;
       int in_string = 0;
       int in_comment = (row->idx > 0 && E.row[row->idx - 1].hl_open_comment);
-
       int i = 0;
       while (i < row->rsize)
       {
           char c = row->render[i];
           unsigned char prev_hl = (i > 0) ? row->hl[i - 1] : HL_NORMAL;
-
-          if (scs_len && !in_string && !in_comment) {
-            {
+          if (scs_len && !in_string && !in_comment)
+          {
               if (!strncmp(&row->render[i], scs, scs_len))
               {
                   memset(&row->hl[i], HL_COMMENT, row->rsize - i);
                   break;
               }
           }
-
           if (mcs_len && mce_len && !in_string)
           {
               if (in_comment)
@@ -300,7 +292,6 @@ void editorUpdateSyntax(erow *row)
                   continue;
               }
           }
-
           if (E.syntax->flags & HL_HIGHLIGHT_STRINGS)
           {
               if (in_string)
@@ -329,8 +320,6 @@ void editorUpdateSyntax(erow *row)
                   }
               }
           }
-        }
-
           if (E.syntax->flags & HL_HIGHLIGHT_NUMBERS)
           {
               if ((isdigit(c) && (prev_sep || prev_hl == HL_NUMBER)) ||
@@ -371,7 +360,7 @@ void editorUpdateSyntax(erow *row)
       int changed = (row->hl_open_comment != in_comment);
       row->hl_open_comment = in_comment;
       if (changed && row->idx + 1 < E.numrows)
-        editorUpdateSyntax(&E.row[row->idx + 1]);
+          editorUpdateSyntax(&E.row[row->idx + 1]);
   }
 
 int editorSyntaxToColor(int hl) {
