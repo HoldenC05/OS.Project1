@@ -1,6 +1,6 @@
 # Kilo.c
 
-Kilo is a small, simple text editor written in C. It is designed to be lightweight and easy to understand.
+Kilo is a small, simple text editor written in C. It is designed to be lightweight and easy to understand. This was intended for Operating Systems Project 1 at the University of Tulsa
 
 ## Features
 
@@ -11,8 +11,7 @@ Kilo is a small, simple text editor written in C. It is designed to be lightweig
 
 ## Installation
 
-To compile Kilo, you can use the make command with the included make file
-
+To compile Kilo, you can use the make command with the included MAKEFILE
 
 ## Usage
 
@@ -40,4 +39,4 @@ This project is licensed under the MIT License. See the `LICENSE` file for more 
 
 ## Acknowledgements
 
-Kilo is based on the tutorial here: [LINK](https://viewsourcecode.org/snaptoken/kilo/index.html)
+This project is based on the tutorial here: [LINK](https://viewsourcecode.org/snaptoken/kilo/index.html)
