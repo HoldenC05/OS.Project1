@@ -279,7 +279,7 @@ void editorInsertChar(int c)
     E.cx++;
 }
 
-void editorInsertNewline() {
+void editorInsertNewline(void) {
     if (E.cx == 0) {
         editorInsertRow(E.cy, "", 0);
     } else {
@@ -303,7 +303,7 @@ void editorRowAppendString(erow *row, char *s, size_t len) {
     E.dirty++;
   }
 
-void editorDelChar() {
+void editorDelChar(void) {
     if (E.cy == E.numrows) return;
     if (E.cx == 0 && E.cy == 0) return;
 
@@ -576,7 +576,7 @@ void editorProcessKeypress(void) {
 
     switch (c) {
         case '\r':
-            /*TODO*/
+            editorInsertNewline();
             break;
 
         case CTRL_KEY('q'):
