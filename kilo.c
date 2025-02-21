@@ -20,7 +20,7 @@
 /*** defines ***/
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-#define Kilo_Version "0.0.1"
+#define KILO_VERSION "0.0.1"
 #define KILO_TAB_STOP 8
 #define KILO_QUIT_TIMES 3
 
@@ -37,6 +37,11 @@ enum editorKey {
     PAGE_DOWN
 };
 
+enum editorHighlight {
+    HL_NORMAL = 0,
+    HL_NUMBER
+  };
+  
 
 /*** data ***/
 
@@ -45,6 +50,7 @@ typedef struct erow {
     int rsize;
     char *chars;
     char *render; 
+    unsigned char *hl;
 } erow;
 struct editorConfig {
     int cx, cy;
@@ -185,6 +191,33 @@ int getWindowSize (int *rows, int *cols) {
     }
 }
 
+/*** syntax highlighting ***/
+
+void editorUpdateSyntax(erow *row)
+{
+    row->hl = realloc(row->hl, row->rsize);
+    memset(row->hl, HL_NORMAL, row->rsize);
+    
+    int i;
+    for (i = 0; i < row->rsize; i++)
+    {
+        if (isdigit(row->render[i]))
+        {
+            row->hl[i] = HL_NUMBER;
+        }
+    }
+}
+
+int editorSyntaxToColor(int hl) {
+    switch (hl)
+    {
+    case HL_NUMBER:
+        return 31;
+    default:
+        return 37;
+    }
+}
+
 /*** row operations ***/
 
 int editorRowCxToRx(erow *row, int cx) {
@@ -234,6 +267,8 @@ void editorUpdateRow(erow *row) {
     }
     row->render[idx] = '\0';
     row->rsize = idx;
+
+    editorUpdateSyntax(row);
   }
 
 void editorInsertRow(int at, char *s, size_t len) {
@@ -249,6 +284,7 @@ void editorInsertRow(int at, char *s, size_t len) {
 
     E.row[at].rsize = 0;
     E.row[at].render = NULL;
+    E.row[at].hl = NULL;
     editorUpdateRow(&E.row[at]);
 
     E.numrows++;
@@ -268,6 +304,8 @@ void editorRowInsertChar(erow *row, int at, int c) {
 void editorFreeRow(erow *row) {
     free(row->render);
     free(row->chars);
+    free(row->hl);
+
 }
 
 void editorDelRow(int at) {
@@ -534,36 +572,72 @@ void editorScroll(void) {
 
 void editorDrawRows(struct abuf *ab) {
     int y;
-    for (y = 0; y < E.screenrows; y++) {
+    for (y = 0; y < E.screenrows; y++)
+    {
         int filerow = y + E.rowoff;
-        if (filerow >= E.numrows) {
-            if (E.numrows == 0 && y == E.screenrows / 3) {
+        if (filerow >= E.numrows)
+        {
+            if (E.numrows == 0 && y == E.screenrows / 3)
+            {
                 char welcome[80];
                 int welcomelen = snprintf(welcome, sizeof(welcome),
-                    "Kilo editor -- version %s", Kilo_Version);
-                if (welcomelen > E.screencols) welcomelen = E.screencols;
+                                          "Kilo editor -- version %s", KILO_VERSION);
+                if (welcomelen > E.screencols)
+                    welcomelen = E.screencols;
                 int padding = (E.screencols - welcomelen) / 2;
-                if (padding) {
+                if (padding)
+                {
                     abAppend(ab, "~", 1);
                     padding--;
-                } 
-                while (padding--) abAppend(ab, " ", 1);
-                    abAppend(ab, welcome, welcomelen);
-            }   else {
-                    abAppend(ab, "~", 1);
+                }
+                while (padding--)
+                    abAppend(ab, " ", 1);
+                abAppend(ab, welcome, welcomelen);
             }
-            } else {
-            int len = E.row[filerow].rsize - E.coloff;
-            if (len <0) len = 0;
-            if (len > E.screencols) len = E.screencols;
-            abAppend(ab, &E.row[filerow].render[E.coloff], len);
+            else
+            {
+                abAppend(ab, "~", 1);
+            }
         }
-    
-
+        else
+        {
+            int len = E.row[filerow].rsize - E.coloff;
+            if (len < 0)
+                len = 0;
+            if (len > E.screencols)
+                len = E.screencols;
+            char *c = &E.row[filerow].render[E.coloff];
+            unsigned char *hl = &E.row[filerow].hl[E.coloff];
+            int current_color = -1;
+            int j;
+            for (j = 0; j < len; j++)
+            {
+                if (hl[j] == HL_NORMAL)
+                {
+                    if (current_color != -1)
+                    {
+                        abAppend(ab, "\x1b[39m", 5);
+                        current_color = -1;
+                    }
+                    abAppend(ab, &c[j], 1);
+                }
+                else
+                {
+                    int color = editorSyntaxToColor(hl[j]);
+                    if (color != current_color)
+                    {
+                        current_color = color;
+                        char buf[16];
+                        int clen = snprintf(buf, sizeof(buf), "\x1b[%dm", color);
+                        abAppend(ab, buf, clen);
+                    }
+                    abAppend(ab, &c[j], 1);
+                }
+            }
+            abAppend(ab, "\x1b[39m", 5);
+        }
         abAppend(ab, "\x1b[K", 3);
-        
         abAppend(ab, "\r\n", 2);
-        
     }
 }
 
